@@ -105,6 +105,9 @@ export function GameCanvas({
         s.launchQueued = true;
         e.preventDefault();
       }
+      // prevent browser "scroll/space" default even when key repeats
+      if (e.key === ' ') e.preventDefault();
+
       if (e.key.toLowerCase() === 'p') s.pauseQueued = true;
       if (e.key.toLowerCase() === 'r') s.resetQueued = true;
       if (e.key.toLowerCase() === 'm') s.toggleMuteQueued = true;
@@ -114,6 +117,7 @@ export function GameCanvas({
       const s = inputRef.current;
       if (e.key === 'ArrowLeft' || e.key.toLowerCase() === 'a') s.left = false;
       if (e.key === 'ArrowRight' || e.key.toLowerCase() === 'd') s.right = false;
+      if (e.key === ' ') e.preventDefault();
     };
 
     window.addEventListener('keydown', onKeyDown);
@@ -181,6 +185,9 @@ export function GameCanvas({
         statusText: snap.statusText,
         hint: snap.hint,
         activePowerUps: snap.activePowerUps.map(powerUpLabel),
+        combo: snap.combo,
+        grade: snap.grade,
+        runOver: snap.runOver,
       });
 
       render(ctx, engine);

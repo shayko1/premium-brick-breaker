@@ -51,6 +51,12 @@ export default function App() {
             <div className="pill">
               <b>ניקוד</b> <small>{formatNumber(snapshot ? snapshot.score : 0)}</small>
             </div>
+            <div className="pill">
+              <b>קומבו</b> <small>{snapshot ? snapshot.combo : 0}×</small>
+            </div>
+            <div className="pill">
+              <b>דרגה</b> <small>{snapshot ? snapshot.grade : 'C'}</small>
+            </div>
           </div>
         </div>
 

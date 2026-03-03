@@ -7,4 +7,7 @@ export type GameSnapshot = {
   statusText: string;
   hint?: string;
   activePowerUps: string[];
+  combo: number;
+  grade: 'S' | 'A' | 'B' | 'C';
+  runOver: boolean;
 };

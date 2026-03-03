@@ -1,6 +1,7 @@
 import { AudioBus } from './audio';
 import { getLevelDefs, pickPowerUp, type Brick, type LevelDef } from './levels';
 import type { PowerUpKind } from './types';
+import { gradeForScore, type Grade } from './ranking';
 
 export type GameStatus = 'MENU' | 'RUNNING' | 'PAUSED' | 'LEVEL_CLEAR' | 'GAME_OVER';
 
@@ -12,6 +13,9 @@ export type EngineSnapshot = {
   statusText: string;
   hint?: string;
   activePowerUps: PowerUpKind[];
+  combo: number;
+  grade: 'S' | 'A' | 'B' | 'C';
+  runOver: boolean;
 };
 
 export type EngineOptions = {
@@ -109,6 +113,12 @@ export class BrickBreakerEngine {
   private score = 0;
   private levelIndex = 0;
 
+  // Arcade meta
+  private combo = 0;
+  private comboTimer = 0;
+  private grade: Grade = 'C';
+  private runOver = false;
+
   private paddle: Paddle;
   private balls: Ball[] = [];
   private bricks: Brick[] = [];
@@ -156,7 +166,7 @@ export class BrickBreakerEngine {
   }
 
   private spawnBall(stuck: boolean) {
-    const s = 520;
+    const s = 640;
     const dir = norm((this.rnd() - 0.5) * 0.55, -1);
     this.balls.push({
       x: this.paddle.x,
@@ -180,6 +190,12 @@ export class BrickBreakerEngine {
     this.active.clear();
     this.paddle.w = 120;
     this.paddle.laserCooldown = 0;
+
+    // new short run per level
+    this.combo = 0;
+    this.comboTimer = 0;
+    this.grade = 'C';
+    this.runOver = false;
   }
 
   getLevelPalette() {
@@ -216,9 +232,9 @@ export class BrickBreakerEngine {
         : this.status === 'PAUSED'
           ? 'מושהה'
           : this.status === 'LEVEL_CLEAR'
-            ? 'שלב הושלם!'
+            ? `ניצחתם! דרגה ${this.grade}`
             : this.status === 'GAME_OVER'
-              ? 'נגמרו החיים'
+              ? `הפסדתם — דרגה ${this.grade}`
               : 'משחק פעיל';
 
     const hint =
@@ -238,13 +254,17 @@ export class BrickBreakerEngine {
       statusText,
       hint,
       activePowerUps,
+      combo: this.combo,
+      grade: this.grade,
+      runOver: this.runOver,
     };
   }
 
   dispatchUi(action: 'start' | 'pause' | 'reset') {
     if (action === 'start') {
       if (this.status === 'MENU' || this.status === 'PAUSED') this.status = 'RUNNING';
-      if (this.status === 'LEVEL_CLEAR') {
+      // Short-run arcade: each level is its own run
+      if (this.status === 'LEVEL_CLEAR' || this.status === 'GAME_OVER') {
         this.loadLevel(this.levelIndex + 1);
         this.balls = [];
         this.spawnBall(true);
@@ -266,6 +286,12 @@ export class BrickBreakerEngine {
   }
 
   update(dt: number, input: InputState) {
+    // decay combo
+    if (this.comboTimer > 0) {
+      this.comboTimer = Math.max(0, this.comboTimer - dt);
+      if (this.comboTimer === 0) this.combo = 0;
+    }
+
     // UI shortcuts
     if (input.resetPressed) this.dispatchUi('reset');
     if (input.toggleMutePressed) {
@@ -295,8 +321,8 @@ export class BrickBreakerEngine {
     this.tickPowerUps(dt);
 
     // Paddle
-    const accel = 2600;
-    const maxV = 820;
+    const accel = 3200;
+    const maxV = 980;
     const target = input.moveAxis * maxV;
     const dv = clamp(target - this.paddle.vx, -accel * dt, accel * dt);
     this.paddle.vx += dv;
@@ -340,7 +366,7 @@ export class BrickBreakerEngine {
         continue;
       }
 
-      const slow = this.active.has('SLOW') ? 0.78 : 1;
+      const slow = this.active.has('SLOW') ? 0.72 : 1;
       b.x += b.vx * dt * slow;
       b.y += b.vy * dt * slow;
 
@@ -370,7 +396,7 @@ export class BrickBreakerEngine {
         b.y = py0 - b.r;
         const hit = (b.x - this.paddle.x) / (this.paddle.w / 2);
         const angle = clamp(hit, -1, 1) * 1.08;
-        const speed = Math.max(520, Math.min(860, len(b.vx, b.vy) * 1.01));
+        const speed = Math.max(600, Math.min(1040, len(b.vx, b.vy) * 1.03));
         const dir = norm(angle, -1);
         b.vx = dir.x * speed + this.paddle.vx * 0.12;
         b.vy = dir.y * speed;
@@ -396,7 +422,11 @@ export class BrickBreakerEngine {
           }
 
           br.hp -= 1;
-          this.score += 50;
+
+          // Combo: reward fast consecutive hits (resets if too slow)
+          this.combo = Math.min(50, this.combo + 1);
+          this.comboTimer = 1.6;
+          this.score += 50 + Math.min(250, this.combo * 6);
           this.audio.beep('brick');
           this.spawnParticles(cx, cy, 14, 190, 0.55);
 
@@ -428,6 +458,8 @@ export class BrickBreakerEngine {
       if (this.opt.haptics) tryVibrate([40, 30, 40]);
 
       if (this.lives <= 0) {
+        this.grade = gradeForScore(this.score);
+        this.runOver = true;
         this.status = 'GAME_OVER';
       } else {
         this.balls = [];
@@ -468,7 +500,9 @@ export class BrickBreakerEngine {
         if (br.hp <= 0) continue;
         if (rectRect(l.x - 2, l.y - 12, 4, 24, br.x, br.y, br.w, br.h)) {
           br.hp = Math.max(0, br.hp - 1);
-          this.score += 40;
+          this.combo = Math.min(50, this.combo + 1);
+          this.comboTimer = 1.6;
+          this.score += 40 + Math.min(200, this.combo * 4);
           this.spawnParticles(l.x, l.y, 8, 220, 0.4);
           this.audio.beep('brick');
           l.y = -999;
@@ -500,9 +534,11 @@ export class BrickBreakerEngine {
 
     // Level clear
     if (this.bricks.every((b) => b.hp <= 0)) {
+      this.score += 500 + Math.min(600, this.combo * 10);
+      this.grade = gradeForScore(this.score);
+      this.runOver = true;
       this.status = 'LEVEL_CLEAR';
       this.audio.beep('win');
-      this.score += 500;
       if (this.opt.haptics) tryVibrate([30, 40, 30, 60]);
     }
   }
