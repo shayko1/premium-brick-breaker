@@ -101,14 +101,14 @@ export function GameCanvas({
       const s = inputRef.current;
       if (e.key === 'ArrowLeft' || e.key.toLowerCase() === 'a') s.left = true;
       if (e.key === 'ArrowRight' || e.key.toLowerCase() === 'd') s.right = true;
-      if (e.key === ' ' || e.key === 'Enter') {
+      if ((e.key === ' ' || e.key === 'Enter') && !e.repeat) {
         s.launchQueued = true;
         e.preventDefault();
       }
       // prevent browser "scroll/space" default even when key repeats
       if (e.key === ' ') e.preventDefault();
 
-      if (e.key.toLowerCase() === 'p') s.pauseQueued = true;
+      if (e.key.toLowerCase() === 'p' && !e.repeat) s.pauseQueued = true;
       if (e.key.toLowerCase() === 'r') s.resetQueued = true;
       if (e.key.toLowerCase() === 'm') s.toggleMuteQueued = true;
     };
@@ -132,8 +132,8 @@ export function GameCanvas({
       if (t.dataset.touch === 'move') {
         inputRef.current.touchAxis = Math.max(-1, Math.min(1, axis));
       } else {
+        // Action pad: launch/fire only (do not auto-toggle pause)
         inputRef.current.launchQueued = true;
-        inputRef.current.pauseQueued = true;
       }
     };
 
