@@ -166,7 +166,7 @@ export default function App() {
               <div className="touchLabel">גרירה להזזה</div>
             </div>
             <div className="touchPad" data-touch="action">
-              <div className="touchLabel">לחיצה לשיגור/השהיה</div>
+              <div className="touchLabel">לחיצה לשיגור</div>
             </div>
           </section>
         </div>

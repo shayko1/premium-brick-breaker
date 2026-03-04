@@ -120,8 +120,9 @@ export function GameCanvas({
       if (e.key === ' ') e.preventDefault();
     };
 
-    window.addEventListener('keydown', onKeyDown);
-    window.addEventListener('keyup', onKeyUp);
+    // Use capture so we reliably get keys even if focus is weird
+    window.addEventListener('keydown', onKeyDown, { capture: true });
+    window.addEventListener('keyup', onKeyUp, { capture: true });
 
     const onPointer = (e: PointerEvent) => {
       const t = (e.target as HTMLElement | null)?.closest?.('[data-touch]') as HTMLElement | null;
@@ -201,8 +202,8 @@ export function GameCanvas({
       window.removeEventListener('pbb:start', startListener as EventListener);
       window.removeEventListener('pbb:pause', pauseListener as EventListener);
       window.removeEventListener('pbb:reset', resetListener as EventListener);
-      window.removeEventListener('keydown', onKeyDown);
-      window.removeEventListener('keyup', onKeyUp);
+      window.removeEventListener('keydown', onKeyDown, { capture: true } as any);
+      window.removeEventListener('keyup', onKeyUp, { capture: true } as any);
       window.removeEventListener('pointerdown', onPointer);
       window.removeEventListener('pointermove', onPointer);
       window.removeEventListener('pointerup', onPointerUp);
@@ -217,7 +218,15 @@ export function GameCanvas({
     engine.setOptions({ highContrast: settings.highContrast, haptics: settings.haptics });
   }, [settings.soundEnabled, settings.highContrast, settings.haptics]);
 
-  return <canvas ref={canvasRef} aria-label="משחק שובר לבנים" role="img" />;
+  return (
+    <canvas
+      ref={canvasRef}
+      aria-label="משחק שובר לבנים"
+      role="img"
+      tabIndex={0}
+      onPointerDown={() => canvasRef.current?.focus()}
+    />
+  );
 }
 
 function render(ctx: CanvasRenderingContext2D, engine: BrickBreakerEngine) {
